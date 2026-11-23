@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大模型推理原理 · 3D 图解课件</title>
+<style>
+:root{--bg:#0b1020;--panel:#111934;--panel2:#161f3e;--line:#26305a;--fg:#e6ebff;--mut:#9aa6d1;--acc:#5b8cff;--org:#ff9f43;--grn:#2ed3a0;--yel:#ffd166;--red:#ff5d73}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{height:46px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:#0e1530}
+header .brand{font-weight:700;font-size:15px;letter-spacing:.02em}
+header .brand span{color:var(--org)}
+#crumb{color:var(--mut);font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pg{font:600 13px Consolas,monospace;color:var(--acc)}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;min-width:0;background:radial-gradient(ellipse at 50% 30%,#1a2552 0%,#0b1020 72%)}
+#cv{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#cv:active{cursor:grabbing}
+#sceneTitle{position:absolute;left:18px;top:14px;font-size:19px;font-weight:700;pointer-events:none;text-shadow:0 2px 10px #000;max-width:52%}
+#sceneTitle small{display:block;font-size:12px;font-weight:400;color:var(--mut);margin-top:4px}
+#hud{position:absolute;right:14px;top:14px;max-width:44%;background:rgba(12,18,40,.82);border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:13px;line-height:1.65;pointer-events:none;display:none}
+#hud b{color:var(--yel)}
+#ctrl{position:absolute;left:50%;bottom:42px;transform:translateX(-50%);display:none;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;background:rgba(12,18,40,.88);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;max-width:94%}
+#ctrl label{display:flex;align-items:center;gap:6px;color:var(--mut)}
+#ctrl label b{color:var(--fg);font-family:Consolas,monospace;min-width:34px}
+#hint{position:absolute;left:16px;bottom:12px;font-size:12px;color:var(--mut);pointer-events:none;opacity:.85}
+#err{position:absolute;left:10px;right:10px;top:60px;background:#5a1020;color:#fff;padding:10px;border-radius:8px;display:none;font:12px Consolas,monospace;white-space:pre-wrap;z-index:9}
+#side{width:440px;flex:none;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:16px 20px 28px}
+#side .no{color:var(--acc);font:600 12px Consolas,monospace;letter-spacing:.12em}
+#side h2{font-size:20px;margin:6px 0 2px;line-height:1.4}
+#side .lead{color:var(--mut);font-size:13px;margin:0 0 4px}
+.card{border-radius:10px;padding:11px 14px;margin:12px 0;background:var(--panel2);border:1px solid var(--line);font-size:14px;line-height:1.8}
+.card .ct{font-weight:700;font-size:13px;margin-bottom:4px;letter-spacing:.03em}
+.card p{margin:4px 0}
+.plain{border-color:rgba(255,159,67,.38);background:rgba(255,159,67,.07)}.plain .ct{color:#ffb86b}
+.pro .ct{color:#8fb0ff}
+.eg{border-color:rgba(46,211,160,.32);background:rgba(46,211,160,.05)}.eg .ct{color:#5ee3b5}
+.key{border-color:rgba(255,209,102,.38);background:rgba(255,209,102,.06)}.key .ct{color:var(--yel)}
+table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.55}
+th,td{border-bottom:1px solid var(--line);padding:6px 5px;text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600}
+code{font-family:Consolas,"JetBrains Mono",monospace;background:rgba(91,140,255,.14);padding:1px 5px;border-radius:4px;font-size:12.5px;color:#d3e2ff}
+.f{display:block;font-family:Consolas,"Cambria Math",monospace;background:rgba(91,140,255,.10);border-radius:6px;padding:8px 10px;margin:6px 0;text-align:center;color:#d3e2ff;font-size:13px;line-height:1.6}
+b.o{color:#ffb86b}b.b{color:#8fb0ff}b.g{color:#5ee3b5}b.c{color:#7fdcff}b.r{color:#ff8a9b}b.y{color:var(--yel)}
+ul,ol{padding-left:20px;margin:4px 0}li{margin:2px 0}
+footer{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;border-top:1px solid var(--line);background:#0e1530}
+#dots{flex:1;display:flex;gap:5px;justify-content:center;flex-wrap:nowrap;overflow-x:auto}
+#dots button{width:30px;height:28px;padding:0;font:600 12px Consolas,monospace}
+button,select{background:#1b254d;color:var(--fg);border:1px solid #33407a;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+button:hover{background:#26336a}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+input[type=range]{accent-color:var(--org);width:130px}
+@media (max-width:980px){main{flex-direction:column}#side{width:auto;height:42%;border-left:none;border-top:1px solid var(--line)}#hud{max-width:60%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🧠 大模型推理原理 <span>3D 图解</span></div>
+  <div id="crumb"></div>
+  <div id="pg"></div>
+</header>
+<main>
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <div id="sceneTitle"></div>
+    <div id="hud"></div>
+    <div id="ctrl"></div>
+    <div id="hint">🖱 拖动旋转 · 滚轮缩放 · 双击复位视角 · ← → 翻页 · 空格 暂停</div>
+    <div id="err"></div>
+  </section>
+  <aside id="side"></aside>
+</main>
+<footer>
+  <button id="prev">‹ 上一页</button>
+  <div id="dots"></div>
+  <button id="next">下一页 ›</button>
+  <button id="play">⏸ 暂停</button>
+  <button id="replay">↺ 重播</button>
+  <select id="spd" title="动画速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+</footer>
+
+<script>
+window.onerror=function(m,s,l,c){const e=document.getElementById('err');e.style.display='block';e.textContent+='JS 错误: '+m+' @'+l+':'+c+'\n';document.title='ERR '+m;};
+</script>
+<script>
+'use strict';
+/* =========================================================
+   迷你 3D 引擎（Canvas 2D 透视投影 + 画家算法），零依赖
+   ========================================================= */
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W=800,H=600,DPR=1,SC=1;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+const seg=(u,a,b)=>clamp((u-a)/(b-a),0,1);
+const L3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const arcPt=(a,b,h,t)=>{const p=L3(a,b,t);p[1]+=Math.sin(Math.PI*t)*h;return p;};
+const hash=(a,b)=>{const x=Math.sin(a*127.1+b*311.7)*43758.5453;return x-Math.floor(x);};
+const vsub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vdot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const vcross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const vnorm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];};
+
+const _hc={};
+function hex(h){if(Array.isArray(h))return h;if(_hc[h])return _hc[h];let s=h.replace('#','');if(s.length===3)s=s.split('').map(c=>c+c).join('');const n=parseInt(s,16);return _hc[h]=[(n>>16)&255,(n>>8)&255,n&255];}
+function mix(a,b,t){a=hex(a);b=hex(b);return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+function rgba(c,a=1){c=hex(c);return`rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;}
+function hsl(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return[255*f(0),255*f(8),255*f(4)];}
+function cmap(v){return v<0?mix('#e8ecff','#3d6bff',Math.min(1,-v*1.2)):mix('#e8ecff','#ff4d5d',Math.min(1,v*1.2));}
+
+const C={blue:'#4f7cff',org:'#ff9f43',grn:'#2ed3a0',cyan:'#38c6f4',pur:'#6a4cff',red:'#ff5d73',yel:'#ffd166',dim:'#2a3360',teal:'#20b2a0'};
+
+const cam={yaw:0.4,pitch:0.3,dist:16,tx:0,ty:2,tz:0};
+const goal={yaw:0.4,pitch:0.3,dist:16,tx:0,ty:2,tz:0};
+let CP=[0,0,0],RV=[1,0,0],UV=[0,1,0],FV=[0,0,1],focal=800;
+function setupView(){
+  const cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  CP=[cam.tx+cam.dist*cp*Math.sin(cam.yaw),cam.ty+cam.dist*sp,cam.tz+cam.dist*cp*Math.cos(cam.yaw)];
+  FV=vnorm(vsub([cam.tx,cam.ty,cam.tz],CP));RV=vnorm(vcross(FV,[0,1,0]));UV=vcross(RV,FV);
+  focal=Math.min(W*0.95,H*1.45);
+}
+function proj(p){
+  const vx=p[0]-CP[0],vy=p[1]-CP[1],vz=p[2]-CP[2];
+  const x=vx*RV[0]+vy*RV[1]+vz*RV[2],y=vx*UV[0]+vy*UV[1]+vz*UV[2],z=vx*FV[0]+vy*FV[1]+vz*FV[2];
+  return[W/2+x*focal/z,H/2-y*focal/z,z];
+}
+const DL=[],LB=[];
+const LIGHT=vnorm([0.45,0.85,0.55]);
+const FACES=[
+ [[1,0,0],[[1,-1,-1],[1,1,-1],[1,1,1],[1,-1,1]]],
+ [[-1,0,0],[[-1,-1,1],[-1,1,1],[-1,1,-1],[-1,-1,-1]]],
+ [[0,1,0],[[-1,1,-1],[-1,1,1],[1,1,1],[1,1,-1]]],
+ [[0,-1,0],[[-1,-1,1],[-1,-1,-1],[1,-1,-1],[1,-1,1]]],
+ [[0,0,1],[[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]],
+ [[0,0,-1],[[1,-1,-1],[-1,-1,-1],[-1,1,-1],[1,1,-1]]]];
+function box(c,s,col,o={}){
+  const a=o.alpha??1,g=o.glow||0,base=hex(col);
+  if(a<=0.01)return;
+  const h=[s[0]/2,s[1]/2,s[2]/2];
+  for(const[n,cs]of FACES){
+    const fc=[c[0]+n[0]*h[0],c[1]+n[1]*h[1],c[2]+n[2]*h[2]];
+    const front=vdot(n,vsub(fc,CP))<0;
+    if(!front&&!(o.both&&a<1))continue;
+    const pts=[];let zs=0,ok=true;
+    for(const q of cs){const p=proj([c[0]+q[0]*h[0],c[1]+q[1]*h[1],c[2]+q[2]*h[2]]);if(p[2]<0.2){ok=false;break;}pts.push(p);zs+=p[2];}
+    if(!ok)continue;
+    let k=0.56+0.44*Math.max(0,vdot(n,LIGHT));if(!front)k*=0.6;
+    let rgb=[base[0]*k,base[1]*k,base[2]*k];
+    if(g>0)rgb=mix(rgb,[255,255,255],Math.min(0.6,g*0.5));
+    DL.push({t:0,z:zs/4,pts,fill:rgba(rgb,a),stroke:o.edge===false?null:(o.edge||`rgba(255,255,255,${(0.10+g*0.3)*Math.min(1,a+0.3)})`)});
+  }
+  if(g>0.05&&o.halo!==false){const p=proj(c);if(p[2]>0.2){const r=Math.max(s[0],s[1],s[2])*focal/p[2]*0.85;DL.push({t:3,z:p[2]+Math.max(s[0],s[1],s[2]),x:p[0],y:p[1],r,col:base,a:Math.min(1,g)*0.32*a});}}
+}
+function line3(a,b,col,w=1.5,al=1,dash){const pa=proj(a),pb=proj(b);if(pa[2]<0.2||pb[2]<0.2)return;DL.push({t:1,z:(pa[2]+pb[2])/2,pts:[pa,pb],col:rgba(col,al),w,dash});}
+function poly3(ps,col,w=1.5,al=1,dash){if(ps.length<2)return;const pp=[];let zs=0;for(const p of ps){const q=proj(p);if(q[2]<0.2)return;pp.push(q);zs+=q[2];}DL.push({t:1,z:zs/pp.length,pts:pp,col:rgba(col,al),w,dash});}
+function arrow3(a,b,col,w=2,al=1){const pa=proj(a),pb=proj(b);if(pa[2]<0.2||pb[2]<0.2)return;DL.push({t:4,z:(pa[2]+pb[2])/2,a:pa,b:pb,col:rgba(col,al),w});}
+function dot3(p,r,col,al=1){const q=proj(p);if(q[2]<0.2)return;DL.push({t:2,z:q[2],x:q[0],y:q[1],r:Math.max(1.5,r*focal/q[2]),col,a:al});}
+function arcPts(a,b,h,upto=1,n=26){const r=[];for(let k=0;k<=n;k++)r.push(arcPt(a,b,h,k/n*upto));return r;}
+function label(p,text,o={}){const q=proj(p);if(q[2]<0.2)return;const sz=(o.size||14)*SC*(o.fixed?1:clamp(cam.dist/q[2],0.72,1.45));
+  LB.push({x:q[0],y:q[1]+(o.dy||0),z:q[2],text:String(text),size:sz,color:o.color||'#eef2ff',bg:o.bg,bold:o.bold,align:o.align||'center',a:o.alpha??1});}
+function tok(p,text,col,o={}){const s=o.s??1;if(s<=0.01)return;box(p,[1.3*s*(o.w||1),0.8*s,0.8*s],col,{glow:o.glow||0,alpha:o.alpha??1});label(p,text,{size:(o.fs||15)*s,bold:true,color:o.tc||'#fff',alpha:o.alpha??1});}
+function seg2(a,b){const pa=proj(a),pb=proj(b);if(pa[2]<0.2||pb[2]<0.2)return;ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);}
+function grid(n=11){ctx.lineWidth=1;ctx.strokeStyle='rgba(120,145,230,0.08)';ctx.beginPath();for(let i=-n;i<=n;i++){seg2([i,0,-n],[i,0,n]);seg2([-n,0,i],[n,0,i]);}ctx.stroke();}
+
+function drawItem(d){
+  if(d.t===0){ctx.beginPath();ctx.moveTo(d.pts[0][0],d.pts[0][1]);for(let i=1;i<d.pts.length;i++)ctx.lineTo(d.pts[i][0],d.pts[i][1]);ctx.closePath();ctx.fillStyle=d.fill;ctx.fill();if(d.stroke){ctx.strokeStyle=d.stroke;ctx.lineWidth=1;ctx.stroke();}}
+  else if(d.t===1){ctx.beginPath();ctx.moveTo(d.pts[0][0],d.pts[0][1]);for(let i=1;i<d.pts.length;i++)ctx.lineTo(d.pts[i][0],d.pts[i][1]);ctx.strokeStyle=d.col;ctx.lineWidth=d.w;ctx.lineCap='round';ctx.lineJoin='round';if(d.dash)ctx.setLineDash(d.dash);ctx.stroke();if(d.dash)ctx.setLineDash([]);}
+  else if(d.t===2){ctx.fillStyle=rgba(d.col,d.a*0.22);ctx.beginPath();ctx.arc(d.x,d.y,d.r*2.3,0,7);ctx.fill();ctx.fillStyle=rgba(d.col,d.a);ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,7);ctx.fill();}
+  else if(d.t===3){const gr=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r);gr.addColorStop(0,rgba(d.col,d.a));gr.addColorStop(1,rgba(d.col,0));ctx.globalCompositeOperation='lighter';ctx.fillStyle=gr;ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,7);ctx.fill();ctx.globalCompositeOperation='source-over';}
+  else if(d.t===4){const[ax,ay]=d.a,[bx,by]=d.b;ctx.strokeStyle=d.col;ctx.fillStyle=d.col;ctx.lineWidth=d.w;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();const an=Math.atan2(by-ay,bx-ax),hl=7+d.w*2.2;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx-hl*Math.cos(an-0.42),by-hl*Math.sin(an-0.42));ctx.lineTo(bx-hl*Math.cos(an+0.42),by-hl*Math.sin(an+0.42));ctx.closePath();ctx.fill();}
+}
+function drawLabel(l){
+  ctx.font=`${l.bold?'700 ':''}${l.size.toFixed(1)}px "PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textAlign=l.align;ctx.textBaseline='middle';ctx.globalAlpha=l.a;
+  const lines=l.text.split('\n'),lh=l.size*1.3;
+  let y0=l.y-(lines.length-1)*lh/2;
+  if(l.bg){let w=0;for(const s of lines)w=Math.max(w,ctx.measureText(s).width);const px=l.size*0.6,py=l.size*0.35;let x0=l.align==='center'?l.x-w/2:l.align==='right'?l.x-w:l.x;
+    ctx.fillStyle=l.bg;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x0-px,y0-lh/2-py,w+px*2,lh*lines.length+py*2,l.size*0.5);else ctx.rect(x0-px,y0-lh/2-py,w+px*2,lh*lines.length+py*2);ctx.fill();}
+  ctx.shadowColor='rgba(0,0,0,0.75)';ctx.shadowBlur=4;ctx.fillStyle=l.color;
+  lines.forEach((s,i)=>ctx.fillText(s,l.x,y0+i*lh));
+  ctx.shadowBlur=0;ctx.globalAlpha=1;
+}
+let lastHud=null;const hudEl=document.getElementById('hud');
+function hud(h){if(h===lastHud)return;lastHud=h;hudEl.innerHTML=h||'';hudEl.style.display=h?'block':'none';}
+
+/* =========================================================
+   课件内容
+   ========================================================= */
+const card=(cls,title,body)=>`<div class="card ${cls}"><div class="ct">${title}</div>${body}</div>`;
+const S=[];
+
+/* ---------- 1. 文字接龙 ---------- */
+S.push({nav:'文字接龙',title:'大模型推理 = 一场超高速的「文字接龙」',sub:'推理就是：根据前文，一次猜一个 token，循环往复',
+cam:{yaw:0.3,pitch:0.28,dist:15.5,t:[0,2.3,0.4]},
+side:`
+${card('plain','🗣 大白话',`<p>大模型其实只会做一件事：<b class="y">看前面的字，猜下一个字</b>。</p><p>猜出来以后，把这个字接到末尾，再根据新的整句话猜下一个……如此循环，直到猜出一个特殊的「结束符」。</p><p>你在聊天界面看到答案一个字一个字往外蹦的「打字机效果」，就是这么来的。</p>`)}
+${card('pro','🎓 专业说法',`<p><b>自回归生成（Autoregressive Generation）</b>：模型学习的是条件概率 <code>P(x<sub>t</sub> | x<sub>1</sub>…x<sub>t-1</sub>)</code>。</p><p>每做一次<b>前向计算（forward pass）</b>，输出下一个 token 的概率分布 → 采样得到一个 token → 追加到输入序列 → 重复，直到生成 <code>EOS</code> 或达到 <code>max_tokens</code>。</p>`)}
+${card('key','⭐ 先分清：训练 vs 推理',`<p><b>训练</b>：不断调整模型参数（权重），让它猜得更准。<br><b>推理</b>：参数<b class="y">固定不动</b>，只做前向计算来生成答案。本课只讲推理。</p>`)}
+${card('pro','🗺 本课路线',`<ol><li>分词 → 向量化 → Transformer 层 → 采样（一次前向在干嘛）</li><li><b class="b">Prefill</b> 与 <b class="o">Decode</b> 两个阶段</li><li>KV Cache 为什么能加速</li><li>GPU 的瓶颈：算力 vs 显存带宽</li><li>连续批处理、投机解码等优化</li></ol>`)}
+`,
+draw(t){
+  grid();
+  const P=3.6,k=Math.floor(t/P)%3,u=(t%P)/P;
+  const words=['中国','的','首都','是','北京','。'];
+  const n=4+k,X=i=>(i-2.5)*1.6,rp=i=>[X(i),0.45,2.8];
+  const pulse=(u>0.3&&u<0.62)?Math.sin(seg(u,0.3,0.62)*Math.PI):0;
+  box([0,3.4,-1.2],[5.4,2.6,2.4],C.pur,{glow:pulse*0.8});
+  label([0,3.8,0.05],'大模型 LLM',{size:22,bold:true});
+  label([0,3.05,0.05],'（几十亿 ~ 上万亿个参数）',{size:12,color:'#ddd6ff'});
+  label([X(0)-1.1,0.45,2.8],'输入 →',{size:13,align:'right',color:'#9aa6d1'});
+  for(let i=0;i<6;i++){if(i<n)tok(rp(i),words[i],i<4?C.blue:C.org);else box(rp(i),[1.3,0.8,0.8],C.dim,{alpha:0.25});}
+  const mB=[0,2.1,-0.4];
+  if(u<0.36){const a=seg(u,0,0.36);for(let i=0;i<n;i++)for(let q=0;q<3;q++){const f=a*1.5-q*0.17-i*0.03;if(f>0&&f<1)dot3(arcPt(rp(i),mB,0.5,ease(f)),0.08,'#a9c0ff');}}
+  if(k<2){
+    if(u>0.42&&u<0.8)label([0,5.3,-1.2],k===0?'预测：下一个最可能是「北京」(82%)':'预测：下一个最可能是「。」(76%)',{size:14,bg:'rgba(255,159,67,0.2)',color:'#ffe0bf'});
+    if(u>0.6){const f=ease(seg(u,0.6,0.95));tok(arcPt([0,2.6,0.2],rp(n),2.4,f),words[n],C.org,{glow:1-f});}
+  }else if(u>0.45){const f=ease(seg(u,0.45,0.75));tok([0,lerp(3.4,5.5,f),-1.2],'<EOS>',C.red,{w:1.4});label([0,6.5,-1.2],'生成了「结束符」→ 停止',{size:14,color:'#ffb3bf'});}
+  hud(k<2?`第 <b>${k+1}</b> 轮：输入 <b>${n}</b> 个 token → 预测第 <b>${n+1}</b> 个<br><span style="color:#9aa6d1">每一轮都是一次完整的前向计算</span>`:`第 <b>3</b> 轮：预测出 <b>&lt;EOS&gt;</b>，生成结束<br><span style="color:#9aa6d1">最终输出：中国的首都是<b style="color:#ffb86b">北京。</b></span>`);
+}});
+
+/* ---------- 2. 分词 ---------- */
+S.push({nav:'分词',title:'第 1 步：分词（Tokenization）',sub:'把文字切成 token，再查词表换成数字编号',
+cam:{yaw:0.18,pitch:0.3,dist:14,t:[0,1.9,-1]},
+side:`
+${card('plain','🗣 大白话',`<p>计算机不认识「字」，只认识数字。所以第一步：</p><ol><li>把句子<b class="y">切成小块</b>，每块叫一个 <b>token</b>；</li><li>查一本「词表」，把每块换成它的<b class="y">编号（ID）</b>。</li></ol><p>常见的词通常是一整块（如「中国」），生僻词、怪字符会被切成更碎的块。</p>`)}
+${card('pro','🎓 专业说法',`<p>主流用 <b>BPE / SentencePiece</b> 等<b>子词（subword）</b>算法，在「词表大小」和「序列长度」之间折中。</p><p>词表规模常见 3.2 万 ~ 25 万（如 Llama 3 为 <code>128,256</code>）。</p>`)}
+${card('eg','🔢 经验值',`<ul><li>中文：1 token ≈ 1 ~ 1.5 个汉字</li><li>英文：1 token ≈ 0.75 个单词</li><li>上下文长度、API 计费，都按 <b>token</b> 数算</li></ul><p style="color:#9aa6d1;font-size:12px">（具体比例取决于分词器；图中 ID 仅为示意）</p>`)}
+`,
+draw(t){
+  grid();
+  const P=7.5,u=(t%P)/P;
+  const tk=[['中国',2,59563,2],['的',1,9370,6],['首都',2,105112,4],['是',1,20412,8]];
+  const cw=1.1,sp=ease(seg(u,0.16,0.4));
+  let acc=-3*cw;
+  const bookZ=-4.6,rowY=r=>0.75+r*0.36;
+  box([0,2.3,bookZ],[7.6,3.9,0.6],'#222c5c');
+  for(let r=0;r<10;r++)line3([-3.6,rowY(r),bookZ+0.31],[3.6,rowY(r),bookZ+0.31],'#6f7fc0',1,0.35);
+  label([0,4.65,bookZ],'词表 Vocabulary（约 10 万 ~ 25 万条）',{size:14,bold:true,color:'#c9d3ff'});
+  if(u>0.1&&u<0.22){const fl=Math.sin(seg(u,0.1,0.22)*Math.PI);let b=-3*cw;for(let i=0;i<3;i++){b+=tk[i][1]*cw;line3([b,0.6,0.5],[b,1.9,0.5],C.yel,2.5,fl);label([b,2.2,0.5],'✂',{size:18,alpha:fl,color:C.yel});}}
+  tk.forEach((k,i)=>{
+    const w=k[1]*cw,x0=acc+w/2;acc+=w;const x=lerp(x0,(i-1.5)*2.5,sp);
+    const p=[x,1.2,0];
+    box(p,[w-0.03,0.9,0.9],mix('#3a4a8a',C.blue,sp));
+    label(p,k[0],{size:18,bold:true});
+    if(u>0.44){const f=ease(seg(u,0.44,0.6));const tp=[x,lerp(1.2,2.6,f),0];
+      box(tp,[1.7,0.5,0.15],C.yel,{alpha:f,glow:0.1});label(tp,'ID '+k[2],{size:13,bold:true,color:'#2a1d00',alpha:f});line3([x,1.65,0],[x,2.35,0],C.yel,1.5,f*0.7);
+      if(u>0.62){const g=seg(u,0.62+i*0.05,0.8+i*0.05);const rp=[(i-1.5)*1.6,rowY(k[3]),bookZ+0.32];
+        line3(tp,rp,C.cyan,1.2,0.35*g,[4,4]);box(rp,[1.4,0.22,0.06],C.cyan,{alpha:g,glow:0.6*g,halo:false});
+        if(g>0&&g<1)dot3(L3(tp,rp,g),0.08,C.cyan);}
+    }
+  });
+  hud(u<0.16?'原始文本：「中国的首都是」':u<0.44?'切分成 <b>4</b> 个 token':'每个 token 换成词表里的编号（ID）<br><span style="color:#9aa6d1">模型真正看到的输入：[59563, 9370, 105112, 20412]</span>');
+}});
+
+/* ---------- 3. Embedding ---------- */
+S.push({nav:'向量化',title:'第 2 步：向量化（Embedding）',sub:'每个编号查表，换成一长串数字 —— 词在「意义空间」里的坐标',
+cam:{yaw:0.42,pitch:0.26,dist:15,t:[0,2.6,-0.6]},
+side:`
+${card('plain','🗣 大白话',`<p>光有编号还不够：编号 59563 和 59564 之间并没有「意思相近」的关系。</p><p>所以每个编号会去一张大表里<b class="y">取出一长串数字（向量）</b>，比如 4096 个数。这串数字就像这个词在「意义空间」里的<b>坐标</b>：</p><p>「北京」和「上海」坐标挨得近，「北京」和「香蕉」离得远。</p>`)}
+${card('pro','🎓 专业说法',`<p>Embedding 矩阵 <code>E ∈ ℝ<sup>V×d</sup></code>，查表：<code>x = E[id]</code>，本质就是取矩阵的一行。</p><p><code>d</code>（d_model，隐藏维度）例如 Llama-3-8B 为 <code>4096</code>，70B 为 <code>8192</code>。</p><p>位置信息（谁在前谁在后）在现代模型中多用 <b>RoPE 旋转位置编码</b>，在注意力计算时注入。</p>`)}
+${card('key','⭐ 记住这个形状',`<p>4 个 token 进来，变成一个 <code>[4 × 4096]</code> 的矩阵。之后模型里的所有计算，都是在对这种矩阵做乘法。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=8,u=(t%P)/P;
+  const toks=['中国','的','首都','是'],ROW=[2,9,5,7],X=i=>(i-1.5)*2.3,tbZ=-3.8,tbY=r=>0.55+r*0.36;
+  for(let r=0;r<12;r++){let hl=0;ROW.forEach((rr,i)=>{const s=0.06+i*0.2;if(rr===r&&u>s&&u<s+0.2)hl=1;});box([0,tbY(r),tbZ],[8.6,0.28,0.5],hl?C.yel:'#2c3a72',{glow:hl*0.6});}
+  label([0,tbY(11)+0.7,tbZ],'Embedding 矩阵：词表大小 × d（如 128K × 4096）',{size:13,color:'#c9d3ff',bold:true});
+  label([4.6,tbY(8),tbZ],'每一行 =\n一个 token 的向量',{size:12,align:'left',color:'#9aa6d1'});
+  toks.forEach((tk,i)=>{
+    const tp=[X(i),0.45,2.2];tok(tp,tk,C.blue);
+    const s=0.06+i*0.2;
+    if(u>s&&u<s+0.12){const f=seg(u,s,s+0.12);for(let q=0;q<4;q++){const ff=clamp(f*1.4-q*0.12,0,1);if(ff>0&&ff<1)dot3(arcPt([X(i)*0.9,tbY(ROW[i]),tbZ+0.3],[X(i),1.2,2.2],1.2,ff),0.09,C.yel);}}
+    const nc=Math.floor(seg(u,s+0.08,s+0.2)*10+0.001);
+    for(let c=0;c<nc;c++){const v=hash(i+1,c+1)*2-1;box([X(i),1.15+c*0.42,2.2],[0.6,0.36,0.6],cmap(v));
+      if(i===0)label([X(i)-0.55,1.15+c*0.42,2.2],(v>=0?'+':'')+v.toFixed(2),{size:10,align:'right',color:'#c9d3ff'});}
+  });
+  if(u>0.86){label([X(3)+0.6,5.4,2.2],'4096 个数字\n（图中只画 10 个）',{size:12,align:'left',color:'#ffe0bf'});}
+  hud('颜色表示数值：<span style="color:#7d9bff">■ 负</span> · <span style="color:#e8ecff">■ 0</span> · <span style="color:#ff6b78">■ 正</span><br>输出形状：<b>[4 个 token × 4096 维]</b>');
+}});
+
+/* ---------- 4. Transformer 层 ---------- */
+S.push({nav:'Transformer',title:'第 3 步：穿过 N 层 Transformer',sub:'每层两道工序：注意力（互相打听）+ 前馈网络（各自消化）',
+cam:{yaw:0.5,pitch:0.18,dist:21,t:[0,5.2,0]},
+side:`
+${card('plain','🗣 大白话',`<p>向量们要依次穿过几十层「加工车间」，每层有两道工序：</p><ol><li><b class="b">注意力 Attention</b>：每个词回头看看前面的词，「打听」上下文。比如「是」会去关注「中国」「首都」。</li><li><b class="g">前馈网络 FFN</b>：每个词各自「消化、联想」，调用模型记住的知识。</li></ol><p>一层层加工下来，最后一个词「是」的向量里，就装满了「中国的首都是___」这层意思。最后<b class="y">只用最后一个位置的向量</b>去预测下一个词。</p>`)}
+${card('pro','🎓 专业说法',`<p>Decoder-only Transformer，每层（Pre-Norm + 残差连接）：</p><span class="f">h = x + Attention(Norm(x))<br>out = h + FFN(Norm(h))</span><p>Llama-3-8B 有 <code>32</code> 层，70B 有 <code>80</code> 层。模型的参数（权重）几乎全部存放在这些层的矩阵里，其中 FFN 约占 2/3。</p><p>最后 <b>LM Head</b>：<code>logits = h<sub>last</sub> · W<sub>vocab</sub></code>，得到词表里每个词的分数。</p>`)}
+${card('key','⭐ 关键点',`<p>每生成 1 个 token，都要把<b class="y">所有层的所有权重</b>用一遍。这一点决定了后面 Decode 阶段的性能瓶颈。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=6.5,u=(t%P)/P;
+  const LN=['第 1 层','第 2 层','第 3 层','第 N 层'],LY=j=>1.4+j*1.9,X=i=>(i-1.5)*1.7,toks=['中国','的','首都','是'];
+  const top=LY(3)+1.4,py=lerp(0.3,top,ease(seg(u,0.02,0.82)));
+  for(let i=0;i<4;i++)line3([X(i),0,0],[X(i),top,0],'#7f92d8',1,0.15,[3,5]);
+  for(let j=0;j<4;j++){
+    const yA=LY(j)-0.35,yF=LY(j)+0.35,nA=Math.exp(-((py-yA)**2)/0.12),nF=Math.exp(-((py-yF)**2)/0.12);
+    box([0,yA,0],[7.6,0.1,3],'#3c63ff',{alpha:0.32,glow:nA*0.9,both:true,halo:false});
+    box([0,yF,0],[7.6,0.1,3],C.teal,{alpha:0.32,glow:nF*0.9,both:true,halo:false});
+    label([-4.1,yA,1.5],'注意力',{size:11,align:'right',color:'#9db4ff'});label([-4.1,yF,1.5],'前馈 FFN',{size:11,align:'right',color:'#8de8da'});
+    label([4.3,LY(j),0],LN[j],{size:14,bold:true,align:'left'});
+    if(nA>0.25)for(let i=1;i<4;i++)for(let k=0;k<i;k++)poly3(arcPts([X(k),py+0.3,0],[X(i),py+0.3,0],0.3+0.18*(i-k)),'#9db4ff',1.4,nA*0.8);
+    if(nF>0.25)for(let i=0;i<4;i++)for(let q=0;q<5;q++){const an=q*1.26+t*4;dot3([X(i)+Math.cos(an)*0.55,py,Math.sin(an)*0.55],0.05,'#8de8da',nF);}
+  }
+  label([4.6,(LY(2)+LY(3))/2,0],'⋮',{size:20,align:'left',color:'#9aa6d1'});
+  const fin=u>0.84;
+  for(let i=0;i<4;i++){const col=mix(C.blue,C.org,clamp((py-0.3)/(top-0.3),0,1));tok([X(i),py,0],toks[i],col,{s:0.62,alpha:fin&&i<3?0.35:1,glow:fin&&i===3?0.6:0});}
+  const lh=[X(3),top+1.2,0];
+  box(lh,[2.0,0.45,1.3],C.yel,{alpha:fin?1:0.3,glow:fin?0.4:0});label(lh,'LM Head',{size:12,bold:true,color:'#2a1d00',alpha:fin?1:0.5});
+  if(fin){const f=seg(u,0.86,0.95);line3([X(3),top+0.3,0],[X(3),top+0.95,0],C.yel,2,f);
+    if(u>0.9)label([X(3)+1.4,top+1.3,0],'北京 82%\n哪里 6%\n一座 4%\n…',{size:12,align:'left',bg:'rgba(255,209,102,0.15)',color:'#ffe9b0'});
+    label([X(1),top+0.4,0],'只取最后一个位置\n去预测下一个词',{size:12,color:'#9aa6d1'});}
+  label([X(0)-0.95,0.6,0],'残差流',{size:11,align:'right',color:'#7f92d8'});
+  hud('颜色变化 <span style="color:#7d9bff">蓝</span> → <span style="color:#ffb86b">橙</span>：向量越往上，融合的上下文越多<br>注意力：只连向<b>前面</b>的词（因果）· FFN：每个词独立处理');
+}});
+
+/* ---------- 5. Attention ---------- */
+const AW=[[1],[0.7,0.3],[0.5,0.2,0.3],[0.45,0.05,0.4,0.1]];
+S.push({nav:'注意力',title:'注意力机制：Q 去问，K 来答，V 是内容',sub:'每个词只能看自己和前面的词（因果遮罩）',
+cam:{yaw:0.22,pitch:0.24,dist:17,t:[2.2,2.4,0]},
+ctrl:`<span style="color:#9aa6d1">让哪个词去「看」：</span><button data-f="0">中国</button><button data-f="1">的</button><button data-f="2">首都</button><button data-f="3" class="on">是</button>`,
+setup(st){st.focus=3;},
+bind(st,el,restart){el.querySelectorAll('button').forEach(b=>b.onclick=()=>{st.focus=+b.dataset.f;el.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));restart();});},
+side:`
+${card('plain','🗣 大白话',`<p>每个词会生成三样东西：</p><ul><li><b class="o">Q（Query）</b>：我想找什么信息？</li><li><b class="c">K（Key）</b>：我身上有什么「标签」？</li><li><b class="g">V（Value）</b>：我真正携带的内容。</li></ul><p>当前词拿自己的 Q，和每个前面词的 K <b>对一对</b>，越匹配分数越高；然后按分数把大家的 V <b>加权混合</b>，变成自己的新内容。</p><p>规矩：<b class="r">只能看前面，不能偷看后面</b>（写作文时不能抄还没写出来的字）。</p>`)}
+${card('pro','🎓 专业说法',`<span class="f">Attention(Q,K,V) = softmax( QKᵀ / √d<sub>k</sub> + M ) · V</span><p><code>M</code> 是<b>因果掩码</b>：上三角填 −∞，softmax 后权重为 0。</p><p>实际是<b>多头注意力</b>（MHA，如 32 个头并行）；<b>GQA/MQA</b> 让多个 Q 头共享同一组 K/V 头，以减小 KV Cache。</p>`)}
+${card('key','⭐ 埋个伏笔（非常重要）',`<p>因为每个词看不到后面的词，所以<b class="y">一个词的 K、V 一旦算出来，之后就永远不会变</b>。</p><p>→ 这正是后面 <b>KV Cache</b> 能成立的根本原因。</p>`)}
+`,
+draw(t,st){
+  grid();
+  const P=7,u=(t%P)/P,f=st.focus;
+  const toks=['中国','的','首都','是'],X=i=>(i-1.5)*2.5,tz=1.5,ty=0.45;
+  const Q=[X(f),3.5,tz],O=[X(f),5.0,tz];
+  for(let i=0;i<4;i++){
+    const al=i>f?0.3:1;
+    tok([X(i),ty,tz],toks[i],i===f?C.org:C.blue,{alpha:al});
+    box([X(i)-0.36,1.45,tz],[0.55,0.55,0.55],C.cyan,{alpha:al});label([X(i)-0.36,1.45,tz],'K',{size:12,bold:true,alpha:al});
+    box([X(i)+0.36,1.45,tz],[0.55,0.55,0.55],C.grn,{alpha:al});label([X(i)+0.36,1.45,tz],'V',{size:12,bold:true,alpha:al});
+    if(i>f&&u>0.1)label([X(i),2.4,tz],'🚫 看不到后文',{size:12,color:'#ff9aa8',alpha:0.9});
+  }
+  line3([X(f),0.85,tz],[X(f),3.2,tz],C.org,1.5,0.5,[4,4]);
+  box(Q,[0.6,0.6,0.6],C.org,{glow:0.3});label(Q,'Q',{size:13,bold:true});
+  const a1=ease(seg(u,0.05,0.32));
+  for(let j=0;j<=f;j++){
+    const w=AW[f][j],K=[X(j)-0.36,1.75,tz],h=0.6+Math.abs(j-f)*0.35;
+    poly3(arcPts(Q,K,h,a1),C.cyan,1+w*7,0.75);
+    if(a1>0&&a1<1)dot3(arcPt(Q,K,h,a1),0.09,C.cyan);
+    if(u>0.32)label(arcPt(Q,K,h,0.5),Math.round(w*100)+'%',{size:12+w*12,bold:true,color:'#bff0ff',bg:'rgba(10,30,50,0.7)'});
+    if(u>0.48&&u<0.82){const g=ease(seg(u,0.48,0.8));const Vp=[X(j)+0.36,1.75,tz];dot3(arcPt(Vp,O,1.2,g),0.07+0.28*w,C.grn,0.95);}
+  }
+  if(u>0.78){const g=ease(seg(u,0.78,0.88));box(O,[0.95*g+0.01,0.65*g+0.01,0.95*g+0.01],C.org,{glow:0.6});label([O[0],O[1]+0.85,O[2]],`新的「${toks[f]}」= Σ 权重 × V`,{size:13,color:'#ffe0bf',bg:'rgba(255,159,67,0.15)'});}
+  const mx=8.2,cs=0.85,my=4.6,mz=-0.5;
+  label([mx,my+1.15,mz],'注意力权重矩阵',{size:13,bold:true});
+  for(let q=0;q<4;q++){label([mx-2*cs-0.15,my-q*cs,mz],toks[q],{size:11,align:'right',color:q===f?'#ffb86b':'#9aa6d1'});label([mx+(q-1.5)*cs,my+0.6,mz],toks[q],{size:11,color:'#9aa6d1'});
+    for(let k=0;k<4;k++){const p=[mx+(k-1.5)*cs,my-q*cs,mz];
+      if(k>q){box(p,[cs*0.9,cs*0.9,0.1],'#161b33',{alpha:0.9});label(p,'−∞',{size:10,color:'#59608a'});}
+      else{const w=AW[q][k];box(p,[cs*0.9,cs*0.9,0.1],mix('#1e2a55',C.yel,w),{glow:q===f?0.25:0,halo:false});if(q===f)label(p,w.toFixed(2),{size:10,bold:true,color:w>0.3?'#2a1d00':'#e6ebff'});}}}
+  label([mx,my-4*cs+0.15,mz],'行 = 谁在看 · 列 = 被看的\n右上角被遮罩（因果）',{size:11,color:'#9aa6d1'});
+  hud(`当前：「<b>${toks[f]}</b>」用 Q 去匹配 ${f+1} 个 K<br>线越粗 = 注意力权重越大（softmax 后和为 100%）`);
+}});
+
+/* ---------- 6. 采样 ---------- */
+const LOG=[['北京',6.0],['哪里',3.4],['一座',3.0],['北',2.6],['什么',2.1],['首都',1.7],['上海',1.2],['南京',0.8]];
+function probs(st){const T=Math.max(0.05,st.T);const ex=LOG.map(l=>Math.exp(l[1]/T));const sm=ex.reduce((a,b)=>a+b,0);const q0=ex.map(e=>e/sm);
+  const keep=q0.map(()=>false);let cum=0;for(let i=0;i<q0.length;i++){keep[i]=true;cum+=q0[i];if(cum>=st.p-1e-9)break;}
+  const s2=q0.reduce((a,v,i)=>a+(keep[i]?v:0),0);return{q0,keep,q:q0.map((v,i)=>keep[i]?v/s2:0)};}
+S.push({nav:'采样',title:'第 4 步：从概率里「抽签」选出下一个词',sub:'温度 T 与 Top-p 控制「稳」还是「野」',
+cam:{yaw:0.2,pitch:0.22,dist:15.5,t:[0,3,0]},
+ctrl:`<label>温度 T <input type="range" id="cT" min="0.1" max="2" step="0.05" value="1"><b id="vT">1.00</b></label><label>Top-p <input type="range" id="cP" min="0.1" max="1" step="0.05" value="1"><b id="vP">1.00</b></label><button id="cG">贪心（T→0）</button><button id="cR">恢复默认</button>`,
+setup(st){st.T=1;st.p=1;st.hist=[];st.ball=null;st.next=0.6;},
+bind(st,el){const cT=el.querySelector('#cT'),cP=el.querySelector('#cP'),vT=el.querySelector('#vT'),vP=el.querySelector('#vP');
+  const up=()=>{st.T=+cT.value;st.p=+cP.value;vT.textContent=st.T.toFixed(2);vP.textContent=st.p.toFixed(2);st.hist=[];};
+  cT.oninput=up;cP.oninput=up;el.querySelector('#cG').onclick=()=>{cT.value=0.1;up();};el.querySelector('#cR').onclick=()=>{cT.value=1;cP.value=1;up();};},
+side:`
+${card('plain','🗣 大白话',`<p>模型最后吐出的是「词表里每个词的<b>得分</b>」（logits）。换算成概率后，像<b class="y">抽签</b>一样抽一个。</p><ul><li><b>温度 T 低</b>：几乎总选第一名 → 稳定、严谨，但可能死板重复。</li><li><b>温度 T 高</b>：冷门词也有机会 → 有创意，但更容易胡说。</li><li><b>Top-p</b>：只在累计概率达到 p 的「靠谱前几名」里抽，把离谱的长尾直接淘汰。</li></ul><p>👉 拖动下方滑块试试！</p>`)}
+${card('pro','🎓 专业说法',`<span class="f">p<sub>i</sub> = exp(z<sub>i</sub>/T) / Σ<sub>j</sub> exp(z<sub>j</sub>/T)</span><ul><li><b>Greedy</b>：直接取 argmax（等价 T→0）</li><li><b>Top-k</b>：只保留概率最高的 k 个</li><li><b>Top-p（Nucleus）</b>：保留累计概率 ≥ p 的最小集合，再重新归一化</li><li>还有 repetition penalty、min-p 等</li></ul>`)}
+${card('key','⭐ 关键点',`<p>采样本身计算量极小。真正昂贵的是<b>前面那次前向计算</b>——而每生成一个 token 就要做一次。</p>`)}
+`,
+draw(t,st){
+  grid();
+  const pr=probs(st),X=i=>(i-3.5)*1.35;
+  if(t>st.next){st.next=t+1.5;let r=Math.random(),idx=0;for(let i=0;i<8;i++){r-=pr.q[i];if(r<=0){idx=i;break;}idx=i;}st.ball={i:idx,t0:t};st.hist.push(LOG[idx][0]);if(st.hist.length>10)st.hist.shift();}
+  const b=st.ball,landed=b&&t-b.t0>0.55;
+  for(let i=0;i<8;i++){const h=0.06+pr.q[i]*7,kp=pr.keep[i],hit=landed&&b.i===i;
+    box([X(i),h/2,0],[0.9,h,0.9],kp?mix(C.blue,C.org,Math.sqrt(pr.q[i])):'#3a3f5c',{alpha:kp?1:0.45,glow:hit?0.8:0});
+    label([X(i),-0.05,1.0],LOG[i][0],{size:15,bold:true,color:kp?'#fff':'#6b7299'});
+    label([X(i),0,1.7],'logit '+LOG[i][1].toFixed(1),{size:10,color:'#7d88b8'});
+    label([X(i),h+0.4,0],kp?(pr.q[i]*100).toFixed(pr.q[i]<0.1?1:0)+'%':'淘汰',{size:12,color:kp?'#ffe0bf':'#6b7299'});}
+  if(b){const h=0.06+pr.q[b.i]*7,f=clamp((t-b.t0)/0.55,0,1);dot3([X(b.i),lerp(9,h+0.3,f*f),0],0.25,C.yel);if(landed)label([X(b.i),h+1.2,0],'抽中！',{size:14,bold:true,color:C.yel});}
+  hud(`T = <b>${st.T.toFixed(2)}</b> · Top-p = <b>${st.p.toFixed(2)}</b>${st.p>=1?'（关闭）':''}<br>最近抽样：${st.hist.join(' · ')||'…'}`);
+}});
+
+/* ---------- 7. Prefill vs Decode 总览 ---------- */
+S.push({nav:'两阶段',title:'核心：推理分两个阶段 —— Prefill 与 Decode',sub:'先「读题」（一次读完），再「答题」（一个字一个字写）',
+cam:{yaw:0.12,pitch:0.4,dist:18.5,t:[-0.8,1.2,0.8]},
+side:`
+${card('plain','🗣 大白话：像考试',`<p><b class="b">Prefill（预填充）= 读题</b><br>题目（你的提示词）已经全给你了，可以<b>一眼扫完</b>：所有 token 同时处理。读完顺手写下第一个字。</p><p><b class="o">Decode（解码）= 答题</b><br>答案只能<b>一个字一个字写</b>，每个字都要基于前面已经写好的字，没法并行。</p>`)}
+${card('pro','🎓 两阶段对比',`<table><tr><th></th><th style="color:#8fb0ff">Prefill</th><th style="color:#ffb86b">Decode</th></tr>
+<tr><td>输入</td><td>整段提示词（n 个）</td><td>每步 1 个新 token</td></tr>
+<tr><td>并行度</td><td>高：n 个一起算</td><td>低：严格串行</td></tr>
+<tr><td>产出</td><td>第 1 个 token + KV Cache</td><td>后续每个 token</td></tr>
+<tr><td>瓶颈</td><td>算力（compute-bound）</td><td>显存带宽（memory-bound）</td></tr>
+<tr><td>指标</td><td><b>TTFT</b> 首 token 延迟</td><td><b>TPOT</b> 每 token 间隔</td></tr></table>`)}
+${card('eg','🔢 总耗时',`<span class="f">端到端延迟 ≈ TTFT + (输出 token 数 − 1) × TPOT</span><p>长提示词 → TTFT 变大；长回答 → Decode 占大头。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=10.5,tt=t%P,ph=clamp(tt/9,0,1),px=lerp(-8.4,6.2,ph);
+  const ans=['，','一座','古老','的','城市'],pr=['中国','的','首都','是'];
+  box([-1,0.05,0],[15.6,0.1,1.8],'#1f2850');
+  const pfA=px>-8.2&&px<-4.6,pfDone=px>=-4.6;
+  box([-6.4,1.1,0],[3.4,2.0,1.5],C.blue,{glow:pfA?0.55:0});
+  label([-6.4,1.1,0.76],'Prefill',{size:18,bold:true});
+  label([-6.4,4.2,0],'① Prefill：读题\n4 个 token 一次并行算完',{size:13,color:'#bcd0ff'});
+  for(let i=0;i<4;i++){const tp=[-6.4+(i-1.5)*0.82,2.85,0];tok(tp,pr[i],C.blue,{s:0.55,fs:16});if(pfA){const f=(tt*1.6)%1;dot3(L3(tp,[-6.4+(i-1.5)*0.6,2.0,0],f),0.07,'#bcd0ff');}}
+  const kvN=(pfDone?4:0);let dn=0;
+  if(pfDone){const g=ease(seg(px,-4.6,-4.0));tok(arcPt([-5.2,2.1,0],[-4.6,2.3,0],0.4,g),'北京',C.org,{s:0.62*g+0.01,fs:16});}
+  for(let k=0;k<5;k++){const xc=-3.2+k*1.75,act=px>xc-0.6&&px<xc+0.6,done=px>=xc+0.6;if(done)dn++;
+    box([xc,0.65,0],[1.2,1.1,1.2],C.org,{alpha:done||act?1:0.3,glow:act?0.7:0});
+    if(done){const g=ease(seg(px,xc+0.6,xc+1.1));tok([xc+0.3,2.3,0],ans[k],C.org,{s:0.62*g+0.01,fs:16});}
+    const src=k===0?[-4.6,2.0,0]:[xc-1.45,2.0,0];if(act)arrow3(src,[xc-0.2,1.3,0],'#ffd0a0',2,0.9);}
+  label([1.0,4.2,0],'② Decode：答题\n每步只生成 1 个 token，串行',{size:13,color:'#ffd9b0'});
+  const fz=1.5;
+  line3([-8.1,0.12,fz],[-4.3,0.12,fz],C.blue,3);label([-6.2,0.12,fz+0.6],'TTFT 首 token 延迟',{size:12,color:'#9db4ff'});
+  line3([-1.45,0.12,fz],[0.3,0.12,fz],C.org,3);label([-0.6,0.12,fz+0.6],'TPOT 每 token 间隔',{size:12,color:'#ffc48a'});
+  const kz=3.4,n=kvN+dn,kx=i=>-7.2+i*0.62;
+  for(let i=0;i<9;i++)box([kx(i),0.25,kz],[0.5,0.4,0.5],i<n?(i<4?C.cyan:'#7fe3ff'):'#ffffff',i<n?{glow:i===n-1?0.4:0,halo:false}:{alpha:0.05,edge:'rgba(160,180,255,0.25)'});
+  label([kx(9)+0.1,0.25,kz],'← KV Cache 随生成不断变长',{size:12,align:'left',color:'#7fdcff'});
+  line3([px,0,0.95],[px,3.4,0.95],'#ffffff',2,0.8);dot3([px,3.4,0.95],0.1,'#ffffff');
+  hud(px<-4.6?'<b>Prefill</b>：整段提示词并行计算，写入 KV Cache':px<6?`<b>Decode</b>：第 ${Math.min(5,dn+1)} 步，每步 1 个 token，KV Cache 长度 ${n}`:'完成：中国的首都是<b>北京，一座古老的城市</b>');
+}});
+
+/* ---------- 8. Prefill 详解 ---------- */
+function layersAndShelf(o){
+  const LY=j=>1.6+j*1.9,LN=['第 1 层','第 2 层','第 N 层'],sx=c=>3.3+c*0.78;
+  for(let j=0;j<3;j++){const g=o.glow?o.glow(j):0;box([-1.5,LY(j),0],[6,0.16,3],'#3a4fa8',{alpha:0.45,glow:g,both:true,halo:false});label([-4.8,LY(j),0],LN[j],{size:13,bold:true,align:'right'});}
+  label([-4.8,(LY(1)+LY(2))/2,0],'⋮',{size:18,align:'right',color:'#9aa6d1'});
+  box([sx(3.5),LY(0)-0.62,0],[6.6,0.08,1.4],'#3b4677');
+  for(let j=0;j<3;j++){box([sx(3.5),LY(j)+0.42,0],[6.6,0.06,1.4],'#3b4677',{alpha:0.6});
+    for(let c=0;c<8;c++){const f=o.fill(j,c);
+      if(f<=0)box([sx(c),LY(j)-0.1,0],[0.62,0.55,1.1],'#ffffff',{alpha:0.05,edge:'rgba(160,180,255,0.25)'});
+      else{const s=0.3*Math.min(1,f);const gen=c>=4;box([sx(c),LY(j)+0.07,0],[s*1.4,s,s*1.4],gen?'#8be6ff':C.cyan);box([sx(c),LY(j)-0.28,0],[s*1.4,s,s*1.4],gen?'#7ff0c8':C.grn);}}}
+  label([sx(3.5),LY(2)+1.1,0],'KV Cache（每层各存一份）',{size:14,bold:true,color:'#7fdcff'});
+  label([sx(-0.65),LY(0)+0.07,0],'K',{size:11,bold:true,color:'#7fdcff'});label([sx(-0.65),LY(0)-0.28,0],'V',{size:11,bold:true,color:'#7ff0c8'});
+  return{LY,sx};
+}
+S.push({nav:'Prefill',title:'Prefill 详解：整段提示词「打包」一次算完',sub:'计算密集 · 产出第一个 token 和 KV Cache · 决定首 token 延迟',
+cam:{yaw:0.26,pitch:0.22,dist:20.5,t:[1.4,3.6,0]},
+side:`
+${card('plain','🗣 大白话',`<p>读题阶段，提示词里的所有 token 被<b class="y">摞成一个大矩阵</b>，一口气塞进每一层做矩阵乘法。</p><p><b>为什么能同时算？</b>因为提示词是现成的，且因果遮罩保证每个位置只看前面——一次大矩阵运算就能同时得到所有位置的结果，不用等。</p><p>顺手，每一层都会把每个 token 的 <b class="c">K</b>、<b class="g">V</b> 放进右边的 <b>KV Cache</b> 货架，留给答题阶段用。</p>`)}
+${card('pro','🎓 专业说法',`<ul><li>输入形状 <code>[n, d]</code>，线性层是 <b>GEMM</b>（矩阵 × 矩阵）</li><li>计算量 ≈ <code>2 × 参数量 × n</code> FLOPs（再加注意力的 O(n²) 项）</li><li>权重读一次能复用到 n 个 token 上 → <b>算术强度高 → 计算密集型（compute-bound）</b></li><li>只有最后一个位置的输出用来采样第一个 token</li></ul>`)}
+${card('eg','🔢 算一算',`<p>8B 模型，提示词 2000 token：</p><span class="f">2 × 8×10⁹ × 2000 ≈ 3.2×10¹³ FLOPs = 32 TFLOP</span><p>H100（BF16 稠密约 989 TFLOPS），按 ~50% 利用率 ≈ <b>65 ms</b>。提示词翻倍，TTFT 大约也翻倍（更长时注意力的平方项更明显）。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=6.5,u=(t%P)/P,toks=['中国','的','首都','是'],X=i=>-1.5+(i-1.5)*1.25;
+  const py=lerp(0.35,6.4,ease(seg(u,0.04,0.8)));
+  const L={LY:j=>1.6+j*1.9};
+  const R=layersAndShelf({glow:j=>Math.exp(-((py-L.LY(j))**2)/0.2)*0.9,fill:(j,c)=>c<4?seg(py,L.LY(j)+0.1,L.LY(j)+0.9):0});
+  for(let j=0;j<3;j++){const f=seg(py,R.LY(j)+0.1,R.LY(j)+0.9);if(f>0&&f<1)for(let i=0;i<4;i++)dot3(L3([X(i),R.LY(j),0],[R.sx(i),R.LY(j)-0.1,0],f),0.08,C.cyan);}
+  for(let i=0;i<4;i++)tok([X(i),py,0],toks[i],C.blue,{s:0.75});
+  box([-1.5,py,0],[5.4,0.85,1.2],'#ffffff',{alpha:0.05,edge:'rgba(255,255,255,0.55)'});
+  label([-1.5,py+0.75,0],'打包成矩阵 [4 × d]，一次算完',{size:12,color:'#d6e0ff'});
+  if(u>0.8){const g=ease(seg(u,0.8,0.9));tok([X(3),7.3,0],'北京',C.org,{s:0.8*g+0.01,glow:0.5});if(u>0.86)label([X(3)+1.0,7.3,0],'⏱ 第一个 token 出炉 → TTFT',{size:13,align:'left',color:'#ffd9b0'});}
+  hud('Prefill：<b>4 个 token 并行</b>穿过每一层<br>每层把 4 组 K、V 一次性写入 KV Cache<br><span style="color:#9aa6d1">GPU 计算核心几乎被打满 → 算力瓶颈</span>');
+}});
+
+/* ---------- 9. Decode 详解 ---------- */
+S.push({nav:'Decode',title:'Decode 详解：一次只喂 1 个 token',sub:'复用 KV Cache · 但每步都要把全部权重从显存搬一遍',
+cam:{yaw:0.26,pitch:0.22,dist:22,t:[0.2,3.6,0]},
+side:`
+${card('plain','🗣 大白话',`<p>答题阶段，每次只喂进 <b class="o">1 个新 token</b>。它在每一层做三件事：</p><ol><li>算出自己的 Q、K、V；</li><li>把自己的 K、V <b>追加</b>到货架上；</li><li>用 Q 去和货架上<b>所有历史 K</b> 对一对，按权重取 V。</li></ol><p>前面的词不用再算一遍，直接从货架拿 —— 省了大量计算。</p><p>但麻烦在于：就为了这 1 个 token，<b class="y">每一层的全部权重都得从显存搬到计算核心一遍</b>（左边紫色的「显存」）。搬运才是最慢的那步。</p>`)}
+${card('pro','🎓 专业说法',`<ul><li>输入形状 <code>[1, d]</code>，线性层退化为 <b>GEMV</b>（矩阵 × 向量）</li><li>每个权重只参与 1 次乘加：FP16 下算术强度 ≈ <code>1 FLOP/Byte</code></li><li>远低于 GPU 平衡点 → <b>显存带宽瓶颈（memory-bound）</b></li></ul>`)}
+${card('eg','🔢 单请求速度上限',`<span class="f">tokens/s 上限 ≈ 显存带宽 ÷ 每步需读取的字节数</span><p>8B 模型 FP16 ≈ 16 GB，H100 带宽 3.35 TB/s：</p><span class="f">3350 ÷ 16 ≈ 210 token/s（理论上限）</span><p>这就是为什么量化（把 16 GB 压到 4~8 GB）能直接提速。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=4.6,s=Math.floor(t/P)%3,u=(t%P)/P,ins=['北京','，','一座'],outs=['，','一座','古老'];
+  const py=lerp(0.35,6.4,ease(seg(u,0.05,0.78)));
+  const LY=j=>1.6+j*1.9;
+  const R=layersAndShelf({glow:j=>Math.exp(-((py-LY(j))**2)/0.2)*0.9,fill:(j,c)=>c<4+s?1:c===4+s?seg(py,LY(j)+0.1,LY(j)+0.9):0});
+  const hb=[-7.6,3.4,0];box(hb,[1.6,5.6,2.2],C.pur,{alpha:0.9});label([hb[0],6.8,0],'显存 HBM\n（全部权重）',{size:13,bold:true,color:'#d9d0ff'});
+  for(let j=0;j<3;j++){const nr=Math.exp(-((py-LY(j))**2)/0.35);
+    if(nr>0.15){for(let q=0;q<10;q++){const f=(t*1.8+q/10)%1;dot3(L3([-6.8,LY(j),(q%3-1)*0.5],[-4.5,LY(j),(q%3-1)*0.5],f),0.07,'#c3b2ff',nr);}
+      if(nr>0.5)label([-5.7,LY(j)+0.55,0],'搬运本层全部权重',{size:11,color:'#d9d0ff'});
+      for(let c=0;c<4+s;c++)line3([-1.5,py,0],[R.sx(c),LY(j)+0.07,0],C.cyan,1,nr*0.45);}
+    const f=seg(py,LY(j)+0.1,LY(j)+0.9);if(f>0&&f<1)dot3(L3([-1.5,LY(j),0],[R.sx(4+s),LY(j)-0.1,0],f),0.09,'#8be6ff');}
+  if(u<0.82)tok([-1.5,py,0],ins[s],C.org,{s:0.8,glow:0.25});
+  if(u>0.78){const g=ease(seg(u,0.8,0.98));const p=arcPt([-1.5,7.2,0],[-1.5,0.35,2.4],1.8,g);tok(p,outs[s],C.org,{s:0.8,glow:0.4});if(u<0.9)label([-0.2,7.4,0],'输出 → 下一步的输入',{size:12,align:'left',color:'#ffd9b0'});}
+  hud(`Decode 第 <b>${s+1}</b> 步：输入「<b>${ins[s]}</b>」（只有 1 个 token）<br>读取 KV Cache 中 <b>${4+s}</b> 个历史位置 · 追加 1 个新位置<br><span style="color:#9aa6d1">每步都要把全部权重从显存读一遍</span>`);
+}});
+
+/* ---------- 10. KV Cache ---------- */
+S.push({nav:'KV Cache',title:'KV Cache：用显存换计算',sub:'旧 token 的 K、V 不会变，存起来，下次直接用',
+cam:{yaw:0.18,pitch:0.3,dist:20,t:[0,2.4,0]},
+side:`
+${card('plain','🗣 大白话',`<p>如果没有货架（KV Cache），每写一个新字，都要把前面<b>所有字的 K、V 从头再算一遍</b>——写第 100 个字就要重算 100 个位置，越写越慢。</p><p>有了 KV Cache：旧的直接拿，<b class="y">每步只算新来的那 1 个</b>。</p><p>代价：货架很<b class="r">占显存</b>，而且随对话长度线性增长。长上下文、高并发时，显存往往先被 KV Cache 吃光。</p>`)}
+${card('pro','🎓 公式',`<span class="f">KV Cache 字节数 = 2 × 层数 × KV头数 × 头维度 × 序列长度 × 每元素字节 × 并发数</span><p>（2 = K 和 V 各一份）</p>`)}
+${card('eg','🔢 以 Llama-3-8B 为例',`<p>32 层，8 个 KV 头（GQA），头维度 128，FP16（2 字节）：</p><span class="f">每 token：2 × 32 × 8 × 128 × 2 B = 128 KB</span><ul><li>8K 上下文 ≈ <b>1 GB</b> / 请求</li><li>32 个请求并发 ≈ <b>32 GB</b>，比模型权重（16 GB）还大！</li></ul>`)}
+${card('key','⭐ 所以才有这些技术',`<p><b>GQA/MQA/MLA</b>（减少 KV 头）、<b>KV 量化</b>（FP8/INT4）、<b>PagedAttention</b>（分页管理避免浪费）、<b>Prefix Caching</b>（相同前缀共享）。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=9.8,tt=t%P,XN=s=>-9+s*1.05,XC=s=>1.6+s*1.05;
+  let cN=0,cC=0;
+  label([XN(3.5),6.3,0],'❌ 无 KV Cache：每步全部重算',{size:14,bold:true,color:'#ffb3bf'});
+  label([XC(3.5),6.3,0],'✅ 有 KV Cache：每步只算 1 个',{size:14,bold:true,color:'#9ff0d0'});
+  box([XN(3.5),0.02,0],[8.6,0.04,1.4],'#2a2040',{alpha:0.8});box([XC(3.5),0.02,0],[8.6,0.04,1.4],'#16303a',{alpha:0.8});
+  for(let s=0;s<8;s++){const t0=0.3+s*0.8;if(tt<t0)break;const g=ease((tt-t0)/0.5),n=5+s,live=g<1;
+    cN+=n;cC+=1;
+    label([XN(s),0,1.05],`${s+1}`,{size:11,color:'#9aa6d1'});label([XC(s),0,1.05],`${s+1}`,{size:11,color:'#9aa6d1'});
+    for(let p=0;p<n;p++){if(p>=Math.ceil(g*n))continue;const y=0.22+p*0.42;
+      box([XN(s),y,0],[0.82,0.36,0.82],C.org,{glow:live?0.35:0,halo:false});
+      const isNew=p===n-1;box([XC(s),y,0],[0.82,0.36,0.82],isNew?C.org:'#2b6f8f',{glow:isNew&&live?0.6:0,halo:false});}}
+  label([XN(3.5),0,1.7],'第几步（Decode）→',{size:11,color:'#7d88b8'});label([XC(3.5),0,1.7],'第几步（Decode）→',{size:11,color:'#7d88b8'});
+  label([XN(3.5),5.7,0],`累计计算 ${cN} 个位置`,{size:13,color:'#ffb3bf'});
+  label([XC(3.5),5.7,0],`累计计算 ${cC} 个位置`,{size:13,color:'#9ff0d0'});
+  hud(`<span style="color:#ffb86b">■</span> 本步新计算 K、V &nbsp; <span style="color:#4aa3c8">■</span> 直接从缓存读取<br>8 步后：无缓存 <b>${cN}</b> 次 vs 有缓存 <b>${cC}</b> 次<br><span style="color:#9aa6d1">重复计算从 O(n²) 降到 O(n)</span>`);
+}});
+
+/* ---------- 11. GPU 瓶颈 ---------- */
+const BS=[1,2,4,8,16,32,64,128,256,512];
+S.push({nav:'GPU 瓶颈',title:'为什么 Decode 慢？算力 vs 显存带宽',sub:'厨师很快，但传菜的走廊太窄',
+cam:{yaw:0.42,pitch:0.42,dist:18.5,t:[0.9,1.0,0]},
+ctrl:`<button id="mP">Prefill（读题）</button><button id="mD" class="on">Decode（答题）</button><label>Decode 批大小 b <input type="range" id="cB" min="0" max="9" step="1" value="0"><b id="vB">1</b></label>`,
+setup(st){st.mode='D';st.b=1;},
+bind(st,el){const mP=el.querySelector('#mP'),mD=el.querySelector('#mD'),cB=el.querySelector('#cB'),vB=el.querySelector('#vB');
+  mP.onclick=()=>{st.mode='P';mP.classList.add('on');mD.classList.remove('on');};mD.onclick=()=>{st.mode='D';mD.classList.add('on');mP.classList.remove('on');};
+  cB.oninput=()=>{st.b=BS[+cB.value];vB.textContent=st.b;st.mode='D';mD.classList.add('on');mP.classList.remove('on');};},
+side:`
+${card('plain','🗣 大白话：GPU 是个厨房',`<p><b class="o">计算核心</b> = 一群手速极快的大厨；<b style="color:#c3b2ff">显存</b> = 隔壁的大冰箱；中间只有一条窄走廊（<b>带宽</b>）。</p><p><b class="b">Prefill</b>：一次端来一大盘食材（几千个 token 共用同一份权重），大厨们全员开工 → <b>大厨忙不过来</b>（算力瓶颈）。</p><p><b class="o">Decode</b>：每做 1 道菜（1 个 token），就得把整个冰箱的食材（全部权重）搬一遍，大厨大部分时间在<b>干等</b> → 走廊堵死（带宽瓶颈）。</p><p>💡 解法：搬一次，多做几道菜 —— <b class="y">批处理（batching）</b>！拖动滑块看看。</p>`)}
+${card('pro','🎓 Roofline 模型',`<p><b>算术强度</b> I = 计算量(FLOPs) ÷ 访存量(Bytes)</p><span class="f">H100：989 TFLOPS ÷ 3.35 TB/s ≈ 295 FLOP/Byte</span><ul><li>I &lt; 295：带宽瓶颈，算力闲置</li><li>I &gt; 295：算力瓶颈</li><li>Decode 中 batch = b 时，线性层 I ≈ b（FP16 权重）</li></ul>`)}
+${card('key','⭐ 注意',`<p>批处理只能共享<b>权重</b>的搬运；每个请求的 <b>KV Cache 各不相同</b>，注意力部分仍是带宽瓶颈。batch 也受显存容量（KV Cache）和单请求延迟限制。</p>`)}
+`,
+draw(t,st){
+  grid();
+  let cu,bu,I;if(st.mode==='P'){I=2048;cu=0.92;bu=0.3;}else{I=st.b;cu=Math.min(1,st.b/295)*0.92;bu=st.b<295?0.92:0.92*295/st.b;}
+  const hz=[-2.1,-0.7,0.7,2.1];
+  for(const z of hz)for(let k=0;k<6;k++)box([-6.4,0.25+k*0.45,z],[1.1,0.38,1.1],C.pur,{alpha:0.95});
+  label([-6.4,3.5,0],'显存 HBM\n存：权重 + KV Cache',{size:13,bold:true,color:'#d9d0ff'});
+  box([-4.2,0.08,0],[2.6,0.06,3.6],'#283466',{alpha:0.8});
+  label([-4.2,0.15,2.3],'带宽 3.35 TB/s',{size:11,color:'#c3b2ff'});
+  for(let q=0;q<48;q++){if(hash(q,7)>bu)continue;const f=(t*0.9+q/48)%1;dot3([lerp(-5.6,-2.8,f),0.35+hash(q,3)*0.5,(hash(q,5)-0.5)*3],0.07,'#c3b2ff');}
+  box([1.2,0.15,0],[7.6,0.3,6.2],'#1b2347');
+  label([1.2,1.5,-3.3],'计算核心（Tensor Cores）989 TFLOPS',{size:13,bold:true,color:'#ffd9b0'});
+  const fr=Math.floor(t*7);
+  for(let a=0;a<10;a++)for(let b=0;b<7;b++){const on=hash(a*7+b,fr)<Math.max(cu,st.mode==='D'&&st.b===1?0.015:0);box([1.2+(a-4.5)*0.7,0.45,(b-3)*0.82],[0.52,0.3,0.58],on?C.org:'#2d3766',{glow:on?0.5:0,halo:false});}
+  const gx=6.7,pct=v=>v*100<1?(v*100).toFixed(1):Math.round(v*100);
+  [['算力利用率',cu,C.org,-0.7],['带宽利用率',bu,'#a78bff',0.7]].forEach(([nm,v,col,dx])=>{const x=gx+dx;box([x,2,0],[0.9,4,0.9],'#ffffff',{alpha:0.05,edge:'rgba(255,255,255,0.3)'});const h=Math.max(0.04,v*4);box([x,h/2,0],[0.8,h,0.8],col,{glow:0.2,halo:false});label([x,4.6,0],`${nm}\n${pct(v)}%`,{size:12,bold:true});});
+  const per=210,tot=Math.min(st.b*per,Math.round(per*295*0.9));
+  hud(st.mode==='P'?`<b>Prefill</b>（提示词 2048 token）<br>算术强度 ≈ <b>${I}</b> FLOP/Byte &gt; 295 → <b>算力瓶颈</b><br><span style="color:#9aa6d1">权重搬一次，被 2048 个 token 复用</span>`:`<b>Decode</b>，批大小 b = <b>${st.b}</b><br>算术强度 ≈ <b>${I}</b> FLOP/Byte ${I<295?'&lt; 295 → <b>带宽瓶颈</b>':'≥ 295 → 接近<b>算力瓶颈</b>'}<br>8B 模型粗估总吞吐 ≈ <b>${tot.toLocaleString()}</b> token/s<span style="color:#9aa6d1">（理想化，忽略 KV 读取）</span>`);
+}});
+
+/* ---------- 12. Continuous Batching ---------- */
+function simBatch(){
+  const dec=[8,3,5,2,4,6,3,5,2,7,4,3],NS=4,st=[[],[],[],[]],ct=[[],[],[],[]],sDone=[],cDone=[];
+  let t0=0;for(let g=0;g<dec.length/NS;g++){const ids=[0,1,2,3].map(i=>g*NS+i),len=1+Math.max(...ids.map(i=>dec[i]));
+    ids.forEach((r,l)=>{for(let k=0;k<len;k++)st[l][t0+k]={type:k===0?'P':k<=dec[r]?'D':'I',r};sDone.push(t0+dec[r]);});t0+=len;}
+  const free=[0,0,0,0];let q=0;
+  for(let t=0;t<80&&q<dec.length;t++)for(let l=0;l<NS;l++)if(free[l]<=t&&q<dec.length){const r=q++;ct[l][t]={type:'P',r};for(let k=1;k<=dec[r];k++)ct[l][t+k]={type:'D',r};free[l]=t+1+dec[r];cDone.push(t+dec[r]);}
+  const cEnd=Math.max(...free);for(let l=0;l<NS;l++)for(let t=0;t<cEnd;t++)if(!ct[l][t])ct[l][t]={type:'I'};
+  return{st,ct,sEnd:t0,cEnd,sDone,cDone};
+}
+const BAT=simBatch();
+S.push({nav:'连续批处理',title:'连续批处理：让 GPU 不闲着',sub:'静态批处理要等最慢的那个；连续批处理随完随补',
+cam:{yaw:0.08,pitch:0.62,dist:20.5,t:[-0.6,0,0.2]},
+side:`
+${card('plain','🗣 大白话：坐公交',`<p><b class="r">静态批处理</b>：像一趟公交，人齐才发车，<b>所有人都到终点</b>才回来接下一批。早下车的人留下的空座位一路空着（灰色格子）。</p><p><b class="g">连续批处理（Continuous Batching）</b>：随上随下，谁到站下车，<b>空座马上让排队的人坐上</b>。</p><p>每个请求的回答长度差别很大，所以这一招能大幅提升吞吐量。</p>`)}
+${card('pro','🎓 专业说法',`<ul><li><b>迭代级调度</b>（iteration-level scheduling，Orca 论文提出）：每个 decode step 都重新组 batch</li><li>完成的请求立即退出，新请求的 prefill 插入</li><li>vLLM、SGLang、TensorRT-LLM 等主流推理引擎均采用</li><li>配合 <b>Chunked Prefill</b>：把长 prefill 切块和 decode 混跑，避免长提示词卡住其他人的生成</li><li>配合 <b>PagedAttention</b>：KV Cache 按块（page）分配，不必为每个请求预留最大长度，显存浪费大幅减少</li></ul>`)}
+${card('eg','🔢 本例（12 个请求，4 个槽位）',`<p>静态：<b>${BAT.sEnd}</b> 步完成，槽位利用率 ${Math.round(64/(4*BAT.sEnd)*100)}%<br>连续：<b>${BAT.cEnd}</b> 步完成，槽位利用率 ${Math.round(64/(4*BAT.cEnd)*100)}%</p>`)}
+`,
+draw(t){
+  grid();
+  const sp=0.38,P=BAT.sEnd*sp+2.5,cur=Math.floor((t%P)/sp),X=s=>(s-11.5)*0.62;
+  const rows=[[BAT.st,-3.3,'静态批处理\n（等最慢的那个）','#ffb3bf',BAT.sDone],[BAT.ct,0.9,'连续批处理\n（随完随补）','#9ff0d0',BAT.cDone]];
+  for(const[tl,z0,nm,col,dn]of rows){
+    const done=dn.filter(x=>x<cur).length;
+    label([X(-0.9),0.3,z0+1.1],`${nm}\n已完成 ${done}/12`,{size:13,bold:true,align:'right',color:col});
+    for(let l=0;l<4;l++){const z=z0+l*0.75;box([X(11.5),0.02,z],[24*0.62,0.04,0.62],'#1d2550',{alpha:0.7});
+      for(let s=0;s<=Math.min(cur,tl[l].length-1);s++){const c=tl[l][s];if(!c)continue;
+        if(c.type==='I')box([X(s),0.1,z],[0.5,0.16,0.55],'#454b6b',{alpha:0.7,halo:false});
+        else{const rc=hsl((c.r*67)%360,70,c.type==='P'?72:58),h=c.type==='P'?0.8:0.45;box([X(s),h/2,z],[0.52,h,0.55],rc,{glow:s===cur?0.5:0,halo:false});}}}
+  }
+  line3([X(cur),0,-3.8],[X(cur),0,4.2],'#ffffff',2,0.6);
+  label([X(11.5),0,4.6],'时间（每格 = 一个 decode step）→',{size:12,color:'#9aa6d1'});
+  hud('同一颜色 = 同一个请求 · 高块 = Prefill · 矮块 = Decode<br><span style="color:#9aa6d1">灰色 = 槽位空转（浪费的 GPU 时间）</span>');
+}});
+
+/* ---------- 13. 投机解码 ---------- */
+S.push({nav:'投机解码',title:'投机解码：小模型打草稿，大模型批改',sub:'利用「Decode 时算力闲着」，一次验证多个 token',
+cam:{yaw:0.18,pitch:0.28,dist:16,t:[-0.4,2.2,0.5]},
+side:`
+${card('plain','🗣 大白话',`<p>大模型一个字一个字写太慢？那就请个<b class="g">「小助手」（小模型）</b>先飞快地打草稿，一口气猜接下来 4 个字。</p><p>然后<b style="color:#c3b2ff">大模型</b>把这 4 个字<b>一次性并行检查</b>（就像 Prefill 一样）。因为 Decode 的瓶颈是「搬权重」，检查 4 个字和生成 1 个字，耗时差不多！</p><p>猜对的直接收下；遇到第一个猜错的，就换成大模型自己的答案，然后从那里继续。</p>`)}
+${card('pro','🎓 专业说法',`<ul><li><b>Draft-then-Verify</b>：草稿模型生成 k 个候选，目标模型一次前向计算 k+1 个位置的分布</li><li>用<b>拒绝采样</b>决定接受与否，可保证输出分布与大模型单独生成<b>完全一致（无损）</b></li><li>加速比取决于接受率，常见 <b>2 ~ 3 倍</b></li><li>变体：Medusa、EAGLE、MTP（多 token 预测头）、Prompt Lookup（n-gram）</li></ul>`)}
+${card('key','⭐ 本质',`<p>把串行的 Decode，部分变成了<b>可并行的 Prefill 式验证</b>，用闲置的算力换时间。</p>`)}
+`,
+draw(t){
+  grid();
+  const P=8,u=(t%P)/P,X=i=>(i-2.5)*1.65,rp=i=>[X(i),0.45,2.6];
+  const ctxT=['北京','，'],dr=['一座','古老','的','城池'];
+  const DM=[-4.8,2.5,-1],BM=[3.2,3.0,-1.2];
+  const bg=(u>0.42&&u<0.62)?Math.sin(seg(u,0.42,0.62)*Math.PI):0;
+  box(DM,[2.2,1.4,1.4],C.teal,{glow:u<0.4?0.3+0.3*Math.sin(t*20):0});label([DM[0],DM[1]+1.1,DM[2]],'小模型（草稿）\n快但不太准',{size:12,color:'#9ff0e0'});
+  box(BM,[4.4,2.6,2.4],C.pur,{glow:bg*0.8});label([BM[0],BM[1]+1.7,BM[2]],'大模型（验证）\n准但每次前向很贵',{size:12,color:'#d9d0ff'});
+  ctxT.forEach((w,i)=>tok(rp(i),w,C.org));
+  for(let k=0;k<4;k++){const t0=0.05+k*0.085;if(u<t0)continue;const f=ease((u-t0)/0.08);
+    const acc=k<3,ver=u>0.62,swap=u>0.82&&!acc;
+    let col=C.teal,al=0.75;if(ver&&acc){col=C.org;al=1;}if(ver&&!acc)col=C.red;
+    if(!swap)tok(arcPt([DM[0],DM[1],DM[2]+0.8],rp(2+k),1.5,f),dr[k],col,{alpha:al,s:f<1?0.85:1});
+    if(ver)label([X(2+k),1.4,2.6],acc?'✓':'✗',{size:22,bold:true,color:acc?'#5ee3b5':'#ff7085'});
+    if(swap){const g=ease(seg(u,0.82,0.95));tok(arcPt([BM[0],BM[1]-1,BM[2]+1],rp(5),1.2,g),'城市',C.org,{glow:1-g});}}
+  if(u>0.42&&u<0.62){const g=seg(u,0.42,0.6);for(let k=0;k<4;k++)dot3(arcPt(rp(2+k),[BM[0],BM[1]-1.1,BM[2]+1.2],1,g),0.1,'#c3b2ff');label([BM[0]-2,BM[1]+2.9,BM[2]],'一次前向，并行检查 4 个草稿',{size:13,color:'#e9e3ff',bg:'rgba(106,76,255,0.25)'});}
+  hud(u<0.42?'小模型快速生成 4 个草稿 token':u<0.62?'大模型<b>一次前向</b>同时验证 4 个位置':u<0.82?'前 3 个通过 ✓，第 4 个不符 ✗':'大模型前向 <b>1 次</b> → 得到 <b>4</b> 个 token<br><span style="color:#9aa6d1">（3 个草稿通过 + 1 个大模型修正；普通解码需 4 次）</span>');
+}});
+
+/* ---------- 14. 总结 ---------- */
+S.push({nav:'总结',title:'总结：一次完整的推理之旅',sub:'Prefill 读题（算力活）→ Decode 逐字作答（搬运活），KV Cache 记笔记',
+cam:{yaw:0.2,pitch:0.36,dist:21,t:[0.4,1.8,0]},
+side:`
+${card('key','⭐ 一句话总结',`<p>大模型推理 = <b class="b">先一口气读完题（Prefill，拼算力）</b> + <b class="o">再一个字一个字写答案（Decode，拼显存带宽）</b>，中间靠 <b class="c">KV Cache</b> 记笔记避免重复劳动。</p>`)}
+${card('pro','🛠 优化技术地图',`<table><tr><th>技术</th><th>解决什么</th><th>大白话</th></tr>
+<tr><td>量化 FP8/INT4</td><td>权重 &amp; KV 搬运量</td><td>把食材压缩，走廊运得快</td></tr>
+<tr><td>FlashAttention</td><td>注意力的显存读写</td><td>分块在高速缓存里算，少跑冰箱</td></tr>
+<tr><td>GQA / MQA / MLA</td><td>KV Cache 太大</td><td>多个头共用一份笔记</td></tr>
+<tr><td>PagedAttention</td><td>KV 显存碎片浪费</td><td>像操作系统分页，按需分块</td></tr>
+<tr><td>连续批处理</td><td>Decode 时 GPU 闲置</td><td>公交车随上随下</td></tr>
+<tr><td>Chunked Prefill</td><td>长 Prefill 卡住别人</td><td>长题目分段读</td></tr>
+<tr><td>PD 分离</td><td>两阶段互相干扰</td><td>读题、答题交给不同机器</td></tr>
+<tr><td>投机解码</td><td>Decode 串行太慢</td><td>小模型打草稿，大模型批改</td></tr>
+<tr><td>Prefix Caching</td><td>重复前缀重复算</td><td>同样开头的题不用重读</td></tr></table>`)}
+${card('plain','🗣 记住三个数字感觉',`<ul><li><b>TTFT</b> 主要看提示词长度 &amp; 算力</li><li><b>TPOT</b> 主要看模型大小 &amp; 显存带宽</li><li><b>吞吐量</b> 主要看能塞多大的 batch（显存里能放多少 KV Cache）</li></ul>`)}
+`,
+draw(t){
+  grid();
+  const st=[['文本','#5a6a9a',-8.2],['分词','#4f7cff',-5.6],['Embedding','#3c63ff',-3.0],['Transformer × N','#6a4cff',0.4],['LM Head',C.yel,3.8],['采样','#ff9f43',6.1],['新 token','#ff7a45',8.3]];
+  const P=9,tt=t%P,pref=tt<3,ph=pref?tt/3:((tt-3)%2)/2;
+  const path=pref?[st[0][2],st[6][2]]:[st[2][2],st[6][2]];
+  const px=lerp(path[0],path[1],ph);
+  st.forEach(([nm,col,x],i)=>{const big=i===3,near=Math.exp(-((px-x)**2)/0.6);
+    if(big){for(let k=0;k<3;k++)box([x,0.7+k*0.75,0],[2.6,0.18,1.8],col,{alpha:0.75,glow:near*0.8,halo:false,both:true});}
+    else box([x,0.9,0],[1.7,1.2,1.4],col,{glow:near*0.7,halo:false});
+    label([x,big?3.0:1.95,0],nm,{size:13,bold:true});
+    if(i<6)arrow3([x+(big?1.4:0.95),0.9,0],[st[i+1][2]-(i+1===3?1.4:0.95),0.9,0],'#8a96c8',2,0.8);});
+  box([0.4,0.35,2.2],[3,0.5,0.9],C.cyan,{glow:0.2,halo:false});label([0.4,0.35,2.9],'KV Cache',{size:12,bold:true,color:'#7fdcff'});
+  line3([0.4,0.6,1.75],[0.4,0.6,0.9],C.cyan,2,0.6,[4,4]);
+  poly3(arcPts([8.3,1.6,0],[-3.0,1.6,0],3.6),'#ffb86b',2,0.6,[6,6]);
+  label([2.6,5.6,0],'↺ 自回归：新 token 追加到输入，再来一轮（Decode）',{size:13,color:'#ffd9b0'});
+  if(pref){for(let i=0;i<4;i++)dot3([px-0.35*i,0.9+0.9,0],0.13,'#9db4ff');label([px,2.6+0.4,0],'Prefill：4 个 token 一起',{size:12,color:'#bcd0ff'});}
+  else dot3(arcPt([px,1.8,0],[px,1.8,0],0,0),0.15,C.org);
+  hud(pref?'<b>Prefill</b>：整段提示词一次性走完全程 → 第 1 个 token + KV Cache':'<b>Decode</b>：每轮 1 个 token 走一遍，读 KV Cache，循环直到 &lt;EOS&gt;');
+}});
+
+/* =========================================================
+   播放控制 & 交互
+   ========================================================= */
+let cur=0,T=0,playing=true,speed=1,ST={};
+const side=document.getElementById('side'),ctrl=document.getElementById('ctrl'),dots=document.getElementById('dots');
+S.forEach((s,i)=>{const b=document.createElement('button');b.textContent=i+1;b.title=s.nav;b.onclick=()=>go(i);dots.appendChild(b);});
+function setCamGoal(c){goal.yaw=c.yaw;goal.pitch=c.pitch;goal.dist=c.dist;goal.tx=c.t[0];goal.ty=c.t[1];goal.tz=c.t[2];}
+function restart(){T=0;}
+function go(i,instant){
+  cur=clamp(i,0,S.length-1);const s=S[cur];T=0;ST={};if(s.setup)s.setup(ST);
+  setCamGoal(s.cam);if(instant)Object.assign(cam,goal);
+  document.getElementById('sceneTitle').innerHTML=`${s.title}<small>${s.sub||''}</small>`;
+  document.getElementById('crumb').textContent=s.title;
+  document.getElementById('pg').textContent=`${String(cur+1).padStart(2,'0')} / ${S.length}`;
+  side.innerHTML=`<div class="no">PART ${String(cur+1).padStart(2,'0')} · ${s.nav}</div><h2>${s.title}</h2><p class="lead">${s.sub||''}</p>${s.side}`;side.scrollTop=0;
+  if(s.ctrl){ctrl.innerHTML=s.ctrl;ctrl.style.display='flex';if(s.bind)s.bind(ST,ctrl,restart);}else{ctrl.innerHTML='';ctrl.style.display='none';}
+  [...dots.children].forEach((b,k)=>b.classList.toggle('on',k===cur));
+  lastHud=null;
+  if(location.hash.replace('#','').split('@')[0]!==String(cur+1))history.replaceState(null,'','#'+(cur+1));
+}
+document.getElementById('prev').onclick=()=>go(cur-1);
+document.getElementById('next').onclick=()=>go(cur+1);
+const playBtn=document.getElementById('play');
+function setPlay(p){playing=p;playBtn.textContent=p?'⏸ 暂停':'▶ 播放';}
+playBtn.onclick=()=>setPlay(!playing);
+document.getElementById('replay').onclick=()=>{T=0;if(S[cur].setup){const keep=ST;S[cur].setup(ST);}setPlay(true);};
+document.getElementById('spd').onchange=e=>speed=+e.target.value;
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  if(e.key==='ArrowRight'||e.key==='PageDown'){go(cur+1);e.preventDefault();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(cur-1);e.preventDefault();}
+  else if(e.key===' '){setPlay(!playing);e.preventDefault();}});
+let drag=null;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,b:e.button,sh:e.shiftKey};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+  if(drag.b===2||drag.sh){const k=goal.dist*0.0016;goal.tx-=dx*k*Math.cos(cam.yaw);goal.tz+=dx*k*Math.sin(cam.yaw);goal.ty+=dy*k;}
+  else{goal.yaw-=dx*0.006;goal.pitch=clamp(goal.pitch+dy*0.005,-0.15,1.35);}});
+cv.addEventListener('pointerup',()=>drag=null);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{goal.dist=clamp(goal.dist*(e.deltaY>0?1.08:0.92),6,45);e.preventDefault();},{passive:false});
+cv.addEventListener('dblclick',()=>setCamGoal(S[cur].cam));
+
+function resize(){const r=cv.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);W=Math.max(1,r.width);H=Math.max(1,r.height);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);SC=clamp(Math.min(W/1050,H/680),0.78,1.25);}
+new ResizeObserver(resize).observe(cv);resize();
+
+function render(){
+  ctx.clearRect(0,0,W,H);setupView();DL.length=0;LB.length=0;
+  S[cur].draw(T,ST);
+  DL.sort((a,b)=>b.z-a.z);for(const d of DL)drawItem(d);
+  LB.sort((a,b)=>b.z-a.z);for(const l of LB)drawLabel(l);
+}
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(playing)T+=dt*speed;
+  const k=1-Math.exp(-dt*5);for(const key of['yaw','pitch','dist','tx','ty','tz'])cam[key]+=(goal[key]-cam[key])*k;
+  render();requestAnimationFrame(frame);
+}
+(function init(){
+  const m=location.hash.replace('#','').split('@');const n=parseInt(m[0]);
+  go(isNaN(n)?0:n-1,true);
+  if(m[1]!==undefined){T=parseFloat(m[1])||0;setPlay(false);}
+  resize();render();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
